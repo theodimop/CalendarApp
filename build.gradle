@@ -1,0 +1,110 @@
+
+/*
+ * Gradle build file for CS5031 shared calendar application
+ * University of St Andrews
+ * S1 2016/17
+ */
+
+// Plugins
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'jacoco'
+apply plugin: 'info.solidsoft.pitest'
+apply plugin: 'checkstyle'
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    jerseyVersion = '2.24'
+    jacocoVersion = '0.7.6.201602180812'
+}
+
+// In this section you declare the dependencies for your production and test code
+dependencies {
+    compile 'org.glassfish.jersey.core:jersey-server:'+jerseyVersion
+    compile 'org.glassfish.jersey.core:jersey-client:'+jerseyVersion
+    compile 'org.glassfish.jersey.core:jersey-common:'+jerseyVersion
+    compile 'org.glassfish.jersey.containers:jersey-container-grizzly2-http:'+jerseyVersion
+    compile 'org.glassfish.jersey.connectors:jersey-grizzly-connector:'+jerseyVersion
+    compile 'com.google.code.gson:gson:2.4'
+    compile 'commons-validator:commons-validator:1.4.1'
+    compile 'com.jfoenix:jfoenix:1.0.0'
+    compile 'mysql:mysql-connector-java:5.1.40'
+    compile 'javax.mail:mail:1.4.6-rc1'
+    compile 'org.apache.commons:commons-lang3:3.0'
+    testCompile 'junit:junit:4.12'
+    testCompile 'com.h2database:h2:1.4.193'
+}
+
+// jacoco gradle command: 'jacocoTestReport'
+jacoco {
+    toolVersion = jacocoVersion
+}
+
+jacocoTestReport {
+    reports {
+        html.enabled = true
+        xml.enabled = false
+        csv.enabled = false
+    }
+}
+
+// pitest gradle command: 'pitest'
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'info.solidsoft.gradle.pitest:gradle-pitest-plugin:1.1.10'
+    }
+}
+
+pitest {
+    targetClasses = ['email.*','gui.*','httpserver.*','controller.*','json_adaptor.*','model.*','sql.*','controller.*,emailTests.*','json_adaptor_tests.*','modelTests.*','SqlTests.*','Utilites.*']
+    threads = 4
+}
+
+// style checker
+checkstyle {
+    configFile = file("${project.rootDir}/checkstyle.xml")
+    toolVersion = '6.7'
+}
+
+tasks.withType(Checkstyle) {
+    reports {
+        xml.enabled false
+        html.enabled true
+    }
+}
+
+// distribution jars
+task jarBackEnd(type: Jar) {
+
+    exclude '/gui', 'httpserver/Client*', 'json_adaptor/JsonRequestBuilder*'
+
+    manifest{
+        attributes 'Main-Class': 'httpserver.Main'
+    }
+    baseName = 'BackEnd'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
+task jarFrontEnd(type: Jar){
+
+    exclude '/sql', 'httpserver/Main*', 'httpserver/Server*', 'json_adaptor/JsonResponseBuilder*', 'json_adaptor/JsonAdaptor*', '/model', '/email'
+
+    manifest{
+        attributes 'Main-Class': 'gui.CalendarView'
+    }
+    baseName = 'FrontEnd'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
+jar {
+    actions = []
+    dependsOn jarFrontEnd, jarBackEnd
+}
